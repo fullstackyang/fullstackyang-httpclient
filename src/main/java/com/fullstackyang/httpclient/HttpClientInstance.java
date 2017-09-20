@@ -47,6 +47,10 @@ import java.util.function.Predicate;
 @Slf4j
 public class HttpClientInstance {
 
+    public static final int CONNECTION_REQUEST_TIMEOUT = 2000;
+    public static final int CONNECT_TIMEOUT = 1000;
+    public static final int SOCKET_TIMEOUT = 4000;
+
     private CloseableHttpClient httpClient;
 
     @Getter
@@ -129,7 +133,7 @@ public class HttpClientInstance {
                 HttpEntity httpEntity = response.getEntity();
                 try {
                     responseContent = getResponseContent(httpEntity);
-                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_ACCEPTED
+                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK
                             && (predicate == null || !predicate.test(responseContent))) {
                         flag = true;
                     }
@@ -170,8 +174,8 @@ public class HttpClientInstance {
             return requestConfig.getProxy() != null ? requestConfig : RequestConfig.copy(requestConfig)
                     .setProxy(httpHost).build();
         else
-            return RequestConfig.custom().setProxy(httpHost).setConnectionRequestTimeout(2000).
-                    setConnectTimeout(1000).setSocketTimeout(4000).build();
+            return RequestConfig.custom().setProxy(httpHost).setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT).
+                    setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
     }
 
 
@@ -190,8 +194,7 @@ public class HttpClientInstance {
                 }
             }
             try {
-                JSONObject jsonObject = new JSONObject(json);
-                return jsonObject;
+                return new JSONObject(json);
             } catch (JSONException e) {
                 log.warn("[getAsJSON] : " + url);
                 log.warn("[getAsJSON] : " + str);
@@ -251,7 +254,7 @@ public class HttpClientInstance {
     public static String getOnce(String url, HttpHost proxy, String charset)
             throws IOException {
         return Request.Get(url).useExpectContinue().viaProxy(proxy).userAgent(HttpClientManager.randomUserAgent())
-                .connectTimeout(5000).socketTimeout(5000).execute().returnContent()
+                .connectTimeout(CONNECT_TIMEOUT).socketTimeout(SOCKET_TIMEOUT).execute().returnContent()
                 .asString(Charset.forName(charset));
     }
 
