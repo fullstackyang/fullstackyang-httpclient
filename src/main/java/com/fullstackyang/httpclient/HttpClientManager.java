@@ -44,8 +44,7 @@ public class HttpClientManager {
 		connectionManager.setMaxTotal(200);
 		connectionManager.setDefaultMaxPerRoute(20);
 
-		RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(5000).setConnectionRequestTimeout(5000)
-				.setConnectTimeout(5000).setProxy(httpHost).build();
+		RequestConfig requestConfig = RequestConfig.custom().setProxy(httpHost).build();
 
 		HttpClientBuilder httpClientBuilder = HttpClients.custom().setUserAgent(randomUserAgent())
 				.setConnectionManager(connectionManager).setDefaultRequestConfig(requestConfig);

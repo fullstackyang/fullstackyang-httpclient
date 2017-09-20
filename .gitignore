@@ -1,8 +1,18 @@
-target/
+#IDEA
 .idea/
 *.iml
+
+#java
 *.jar
 *.war
 *.ear
+
+#log
 logs/
+*log*
+
+#maven
+target/
+
+#property files
 src/main/resources/proxy.properties
