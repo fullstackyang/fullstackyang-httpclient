@@ -4,4 +4,5 @@ target/
 *.jar
 *.war
 *.ear
+logs/
 src/main/resources/proxy.properties
