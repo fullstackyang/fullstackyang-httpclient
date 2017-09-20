@@ -36,7 +36,6 @@ public class DefaultProxyProvider {
         delay = StringUtils.isNumeric(proxydelay) ? Integer.parseInt(proxydelay) : 5000;
     }
 
-    private static HttpHost proxy = getProxy();
 
     public static HttpHost getProxy() {
         if (Strings.isNullOrEmpty(proxyapi))

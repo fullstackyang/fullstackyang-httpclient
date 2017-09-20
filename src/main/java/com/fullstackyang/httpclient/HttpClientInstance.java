@@ -4,9 +4,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
+import org.apache.http.*;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.GzipDecompressingEntity;
@@ -131,8 +129,7 @@ public class HttpClientInstance {
                 HttpEntity httpEntity = response.getEntity();
                 try {
                     responseContent = getResponseContent(httpEntity);
-                    if (!responseContent.contains("ERROR: The requested URL could not be retrieved")
-                            && !responseContent.contains("ERR_ACCESS_DENIED")
+                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_ACCEPTED
                             && (predicate == null || !predicate.test(responseContent))) {
                         flag = true;
                     }
@@ -146,6 +143,8 @@ public class HttpClientInstance {
             } finally {
                 if (!flag) {
                     changeProxy();
+                    if (httpRequest.getConfig().getProxy() != null)
+                        httpRequest.setConfig(RequestConfig.copy(httpRequest.getConfig()).setProxy(null).build());
                 }
             }
         }
@@ -171,8 +170,8 @@ public class HttpClientInstance {
             return requestConfig.getProxy() != null ? requestConfig : RequestConfig.copy(requestConfig)
                     .setProxy(httpHost).build();
         else
-            return RequestConfig.custom().setProxy(httpHost).setConnectionRequestTimeout(5000).
-                    setConnectTimeout(5000).setSocketTimeout(5000).build();
+            return RequestConfig.custom().setProxy(httpHost).setConnectionRequestTimeout(2000).
+                    setConnectTimeout(1000).setSocketTimeout(4000).build();
     }
 
 
@@ -251,7 +250,8 @@ public class HttpClientInstance {
 
     public static String getOnce(String url, HttpHost proxy, String charset)
             throws IOException {
-        return Request.Get(url).useExpectContinue().viaProxy(proxy).userAgent(HttpClientManager.randomUserAgent()).connectTimeout(5000).socketTimeout(5000).execute().returnContent()
+        return Request.Get(url).useExpectContinue().viaProxy(proxy).userAgent(HttpClientManager.randomUserAgent())
+                .connectTimeout(5000).socketTimeout(5000).execute().returnContent()
                 .asString(Charset.forName(charset));
     }
 
@@ -298,7 +298,7 @@ public class HttpClientInstance {
             for (Element link : links) {
                 String metaContent = link.attr("content");
                 String metaCharset = link.attr("charset");
-                if (metaContent.indexOf("charset=") != -1) {
+                if (metaContent.contains("charset=")) {
                     metaContent = metaContent.substring(metaContent.indexOf("charset"), metaContent.length());
                     return Charset.forName(metaContent.split("=")[1]);
                 } else if (!StringUtils.isEmpty(metaCharset)) {
