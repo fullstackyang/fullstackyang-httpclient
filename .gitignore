@@ -4,3 +4,4 @@ idea/
 .jar
 .war
 .ear
+src/main/resources/proxy.properties
