@@ -32,7 +32,7 @@ public class DefaultProxyProvider {
             }
         }
         proxyapi = properties.getProperty("proxy.api");
-        String proxydelay = properties.getProperty("proxy.deplay");
+        String proxydelay = properties.getProperty("proxy.delay");
         delay = StringUtils.isNumeric(proxydelay) ? Integer.parseInt(proxydelay) : 5000;
     }
 
