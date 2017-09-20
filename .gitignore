@@ -1,7 +1,7 @@
 target/
-idea/
-.iml
-.jar
-.war
-.ear
+.idea/
+*.iml
+*.jar
+*.war
+*.ear
 src/main/resources/proxy.properties
