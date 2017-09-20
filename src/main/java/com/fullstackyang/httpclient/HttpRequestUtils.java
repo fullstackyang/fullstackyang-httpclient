@@ -33,7 +33,7 @@ public class HttpRequestUtils {
 	public static HttpGet createHttpGet(String url, Map<String, String> headers) {
 		HttpGet get = new HttpGet(url);
 		if (headers != null)
-			headers.forEach((k, v) -> get.addHeader(k, v));
+			headers.forEach(get::addHeader);
 		return get;
 	}
 
@@ -45,7 +45,7 @@ public class HttpRequestUtils {
 			e.printStackTrace();
 		}
 		if (headers != null)
-			headers.forEach((k, v) -> httpPost.addHeader(k, v));
+			headers.forEach(httpPost::addHeader);
 		
 		if (params != null) {
 			try {
@@ -69,7 +69,7 @@ public class HttpRequestUtils {
 
 	public static BasicCookieStore addCookie(BasicCookieStore cookieStore, BasicClientCookie... cookies) {
 		if (cookies != null && cookies.length > 0)
-			Arrays.stream(cookies).forEach(cookie -> cookieStore.addCookie(cookie));
+			Arrays.stream(cookies).forEach(cookieStore::addCookie);
 		return cookieStore;
 	}
 }
