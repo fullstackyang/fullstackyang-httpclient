@@ -1,5 +1,6 @@
 package com.fullstackyang.httpclient;
 
+import com.google.common.base.Strings;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -28,7 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.util.Objects;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
@@ -55,6 +56,8 @@ public class HttpClientInstance {
 
     @Getter
     private HttpHost httpHost;
+
+    private ExecutorService executor = Executors.newCachedThreadPool();
 
     private HttpClientInstance() {
         init();
@@ -105,6 +108,7 @@ public class HttpClientInstance {
         return DefaultProxyProvider.getProxy();
     }
 
+
     /**
      * 最为常用的get方法
      *
@@ -112,15 +116,33 @@ public class HttpClientInstance {
      * @return
      */
     public String get(String url) {
-        return execute(new HttpGet(url), null);
+        return get(createHttpGet(url), null);
     }
 
-    public String execute(HttpRequestBase httpRequest, HttpClientContext context) {
-        return tryExecute(httpRequest, context, Objects::isNull);
+    private HttpGet createHttpGet(String url) {
+        HttpGet httpget = new HttpGet(url);
+        httpget.setConfig(getRequestConfig());
+        httpget.setHeader(HttpHeaders.USER_AGENT, HttpClientManager.randomUserAgent());
+        return httpget;
     }
 
-    public String tryExecute(HttpRequestBase httpRequest, HttpClientContext context, Predicate<String> predicate) {
-        if (httpRequest.getURI() == null || "".equals(httpRequest.getURI().toString())) {
+    private RequestConfig getRequestConfig() {
+        return RequestConfig.custom()
+                .setSocketTimeout(3000)
+                .setConnectTimeout(3000)
+                .setConnectionRequestTimeout(3000).setProxy(httpHost)
+                .build();
+    }
+
+    public String get(HttpGet httpGet, HttpClientContext context) {
+        Predicate<String> predicate = s -> Strings.isNullOrEmpty(s)
+                ||s.contains("ERROR: The requested URL could not be retrieved")
+                ||s.contains("ERR_ACCESS_DENIED");
+        return get(httpGet, context, predicate);
+    }
+
+    public String get(HttpGet httpGet, HttpClientContext context, Predicate<String> predicate) {
+        if (httpGet.getURI() == null || "".equals(httpGet.getURI().toString())) {
             log.warn("url is null or empty!");
             return null;
         }
@@ -129,7 +151,7 @@ public class HttpClientInstance {
         boolean flag = false;
         while (!flag) {
             try {
-                CloseableHttpResponse response = execute(httpRequest, httpClient, context);
+                CloseableHttpResponse response = execute(httpGet, httpClient, context);
                 HttpEntity httpEntity = response.getEntity();
                 try {
                     responseContent = getResponseContent(httpEntity);
@@ -142,13 +164,13 @@ public class HttpClientInstance {
                     response.close();
                 }
             } catch (IOException e) {
-                log.debug("[" + e.getMessage() + "] " + httpRequest.getURI().toString());
+                log.debug("[" + e.getMessage() + "] " + httpGet.getURI().toString());
                 flag = false;
             } finally {
                 if (!flag) {
                     changeProxy();
-                    if (httpRequest.getConfig().getProxy() != null)
-                        httpRequest.setConfig(RequestConfig.copy(httpRequest.getConfig()).setProxy(null).build());
+                    httpGet.abort();
+                    httpGet = createHttpGet(httpGet.getURI().toString());
                 }
             }
         }
@@ -158,31 +180,22 @@ public class HttpClientInstance {
 
     private CloseableHttpResponse execute(HttpRequestBase httpRequest, CloseableHttpClient httpClient,
                                           HttpClientContext context) throws IOException {
-        RequestConfig requestConfig = wrapper(httpRequest.getConfig());
-        httpRequest.setConfig(requestConfig);
-        return httpClient.execute(httpRequest, context);
+        Future<CloseableHttpResponse> future = executor.submit(() -> httpClient.execute(httpRequest, context == null
+                ? HttpClientContext.create() : context));
+        try {
+            return future.get(60, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new IOException(e.getMessage());
+        }
     }
 
-    /**
-     * 在原有的RequestConfig基础上添加proxy
-     *
-     * @param requestConfig
-     * @return 若proxy已存在，则维持原样，否则加入当前proxy
-     */
-    private RequestConfig wrapper(RequestConfig requestConfig) {
-        if (requestConfig != null)
-            return requestConfig.getProxy() != null ? requestConfig : RequestConfig.copy(requestConfig)
-                    .setProxy(httpHost).build();
-        else
-            return RequestConfig.custom().setProxy(httpHost).setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT).
-                    setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
-    }
+
 
 
     public JSONObject getAsJSON(String url, String prefix, String surffix) {
         for (; ; ) {
             log.debug("[getAsJSON] : " + url);
-            String str = execute(new HttpGet(url), null);
+            String str = get(new HttpGet(url), null);
             String json = str.replaceAll("&#039;|&quot;", "'").replaceAll("&amp;", "&").replaceAll("&lt;", "<")
                     .replaceAll("&gt;", ">");
             if (prefix != null && json.contains(prefix)) {
